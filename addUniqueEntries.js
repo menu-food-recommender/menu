@@ -36,6 +36,27 @@ var searchRef = ref.child("search_tree");
 //   })
 // }
 
+//build a search tree of the following form:
+/*
+{
+  cuisine1:{
+    foodType1:{
+      ingredient1,
+      ingredient2,
+      ...
+    }
+    foodType2:{
+      ...
+    }
+    ...
+  },
+  cuisine2:{
+    ...
+  },
+  ...
+}
+This search tree is used in the questionaire to narrow down options as the user selects questionaire buttons.
+*/
 function addUniqueEntries(propHierarchy){
   return new Promise((resolve, reject) => {
     var menu_item;
