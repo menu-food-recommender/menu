@@ -16,10 +16,7 @@ ref.once("value", function(snapshot) {
 
 // Get a database reference to our blog
 var db = admin.database();
-var ref = db.ref();
-
+exports.ref = db.ref();
 
 //set up routing to save menu items
 //var menuitemsRef = ref.child("menu_items");
-
-export ref;

@@ -34,6 +34,7 @@ function findCuisinesPromise(rest){
         format: "json"
       }, (err, res, body) =>{
         if(err) reject(err);
+        else if(body == undefined) reject("undefined body, will skip parsing");
         body = JSON.parse(body);
         if(body.query.prefixsearch.length > 0) resolve(body.query.prefixsearch[0].title);
       });
@@ -68,9 +69,6 @@ var cuisinesRef = ref.child("cuisines");
 var foodTypesRef = ref.child("foodTypes");
 var ingredientsRef = ref.child("ingredients");
 
-//remove menuitems from database
-menuitemsRef.remove();
-
 // Get restaurant API keys
 let aPromise = new Promise((resolve, reject) => {
   request.get({
@@ -78,47 +76,63 @@ let aPromise = new Promise((resolve, reject) => {
       'X-Access-Token': '__API_EXPLORER_AUTH_KEY__'
     },
     method: 'GET',
-    uri: 'https://eatstreet.com/publicapi/v1/restaurant/search?method=both&pickup-radius=80&street-address=800+W+Campbell+Rd,+Richardson,+TX+75080',
+    uri:  'https://eatstreet.com/publicapi/v1/restaurant/search?method=both&pickup-radius=8000&street-address=8500+Pe%C3%B1a+Blvd,+Denver,+CO+80249'
   }, (err, res, body) => {
     if (err) reject(err);
+    else if(body === undefined) reject("undefined body, will skip parsing");
     resolve(JSON.parse(body).restaurants);
     // restaurantsRef.push();
   })
 });
 
+var menuItemCount = 0;
+
 // Get the menu items from each restaurant
 aPromise.then(restaurants =>{
-  Promise.all(restaurants.map(rest => new Promise((resolve, reject) =>{
+  Promise.all(restaurants.map((rest, i) => new Promise((resolve, reject) =>{
     request.get({
       headers: {
         'X-Access-Token': '__API_EXPLORER_AUTH_KEY__'
       },
       method: 'GET',
-      uri: 'https://eatstreet.com/publicapi/v1/restaurant/' + rest.apiKey + '/menu?includeCustomizations=false',
+      uri: 'https://eatstreet.com/publicapi/v1/restaurant/' + rest.apiKey + '/menu?includeCustomizations=false'
     }, (err, res, body) => {
       if (err) reject(err);
+      else if(body === undefined) reject("undefined body, will skip parsing");
       let restItems = [];
       let itemPromises = [];
-      itemPromises.push(findCuisinesPromise(rest));
-      JSON.parse(body).map(menuCategory =>{
-        menuCategory.items.map(item => {
-          if(item["description"] != null){
-            itemPromises.push(new Promise((resolve, reject) =>{
-              resolve([]);                                            //instantiate an empty response. The python script is responsible for populating this
-            }));
-            Promise.all(itemPromises).then(([cuisines, ingredients]) => {           //when the cuisines and ingredient promises are resolved
-              item["restaurant"] = rest.name;
-              item["foodTypes"] = [menuCategory.name];
-              item["cuisines"] = cuisines;
-              item["ingredients"] = ingredients;
-              menuitemsRef.push(item);
+      setTimeout(function() {
+        try{
+          itemPromises.push(findCuisinesPromise(rest));
+          JSON.parse(body).map(menuCategory =>{
+            menuCategory.items.map(item => {
+              if(item["description"] != null){
+                Promise.all(itemPromises).then(([cuisines]) => {
+                  item["restaurant"] = rest.name;
+                  item["foodTypes"] = [menuCategory.name];
+                  item["cuisines"] = cuisines;
+                  item["ingredients"] = [];
+                  menuitemsRef.child(item['apiKey']).set(deleteProp(item, 'apiKey'));
+                  menuItemCount++;
+                  console.log(menuItemCount + ": pushed " + item["name"] + "\n");
+                });
+              }
             });
-          }
-        });
-        resolve(restItems);
-      });
+            resolve(restItems);
+          });
+        } catch(err){
+          console.log(err);
+          resolve("caught error")
+        }
+      }, 500 * i)
     });
   }))).then((menuItems)=>{                        //when all tasks are done
     console.log("Done aggregating menu items");
+    process.exit();
   });
 });
+
+function deleteProp(obj, prop) {
+  delete obj[prop];
+  return obj;
+}

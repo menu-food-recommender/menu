@@ -1,2 +1,9 @@
 node_modules/
 creds/
+**clean_food_types
+/cleanFoodTypes.js
+/test_users.js
+/**menu-9d9a8
+/DenormalizeRestaurantTags.js
+/AddUniqueEntries.js
+tutorial/
